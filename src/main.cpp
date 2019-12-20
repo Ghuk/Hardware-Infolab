@@ -24,8 +24,8 @@
 #include <../lib/FastLED/FastLED.h>
 
 
-#define SERIAL2_RX 12
-#define SERIAL2_TX 13
+#define SERIAL2_RX 17
+#define SERIAL2_TX 21
 
 #define DHTTYPE DHT22   // DHT 22
 const int DHTPin = 5; // pin digital donde esta conectado el sensor de temperatura  y humedad
@@ -44,12 +44,14 @@ const int SENSORLLAMA = 32; // pin digital donde esta conectado el sensor de lla
 
 const int SENSOR_CALIDAD_AIRE = A3;
 
-const int SENSOR_ULTRASONIDO_TRIGGER = 21;
-const int SENSOR_ULTRASONIDO_ECHO = 17;
+/* const int SENSOR_ULTRASONIDO_TRIGGER = 21;
+const int SENSOR_ULTRASONIDO_ECHO = 17; */
+const int SENSOR_ULTRASONIDO_TRIGGER = 15;
+const int SENSOR_ULTRASONIDO_ECHO = 33;
 const int maxDistanciaUltrasonido = 200;
 
-//const int SENSOR_PIR = 17;
-const int SENSOR_PIR = 4;
+//const int SENSOR_PIR = 4;
+const int SENSOR_PIR = 27;
 
 Adafruit_APDS9960 apds;
 MPU9250 mpu = MPU9250(); 
@@ -242,7 +244,7 @@ void Post(String fechaPost, float promedioVolts_dbPost, float humedad, float tem
   
   serializeJson(doc, postMessage);
   Serial.println(postMessage);
-  if(WiFi.status()== WL_CONNECTED){
+  /* if(WiFi.status()== WL_CONNECTED){
     HTTPClient http;
     http.begin("http://192.168.1.5:3000/registros/insert-register");
     http.addHeader("Content-Type", "application/json");
@@ -264,7 +266,7 @@ void Post(String fechaPost, float promedioVolts_dbPost, float humedad, float tem
       delay(500);
       Serial.println("Connecting to WiFi..");
     }
-  }
+  } */
   delay(70);
   postMessage = "";
   doc.clear();
@@ -416,6 +418,7 @@ void loop() {
       promedioVolts_db = sumaVolts_db/ctrRuido;
       
       //if(promedioVolts_db>55 && !sonido){
+      //Lee el valor del pin Busy del mp3
       sonido = digitalRead(18);
       //if(actuador == '1' && sonido == HIGH && nodo == nodoRecibido){
       if(actuador == '1' && sonido == HIGH  && nodo == nodoRecibido){
@@ -424,6 +427,8 @@ void loop() {
         myDFPlayer.play(1);
         actuador = 0;
       }
+
+      
 
       /* if(millis() - timerParlante < 20000 && sonido == LOW){
         myDFPlayer.stop();
@@ -483,7 +488,7 @@ void loop() {
       sumaVolts_db = 0;
       ctrRuido = 0;
       VENTANA_POSTEO += 1000;
-      
+
     }
 }
 
