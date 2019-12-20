@@ -44,8 +44,6 @@ const int SENSORLLAMA = 32; // pin digital donde esta conectado el sensor de lla
 
 const int SENSOR_CALIDAD_AIRE = A3;
 
-/* const int SENSOR_ULTRASONIDO_TRIGGER = 21;
-const int SENSOR_ULTRASONIDO_ECHO = 17; */
 const int SENSOR_ULTRASONIDO_TRIGGER = 15;
 const int SENSOR_ULTRASONIDO_ECHO = 33;
 const int maxDistanciaUltrasonido = 200;
@@ -69,14 +67,11 @@ const float VOLTAJE_GANANCIA_PERDIDA = 0.001259;
 int muestra;
 
 //Configuracion del WiFi, nombre y contraseña
-/* const char* ssid = "85534600";
-const char* password =  "900DCBB04AD2"; */
 
 const char* ssid = "WiFi-UAO";
 const char* password =  "";
 
-/* const char* ssid = "Talentum WiFi - Corporativa";
-const char* password =  "t4l3ntum2019"; */
+String URL;
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -115,6 +110,7 @@ AsyncWebSocket ws("/test");
 // Crea arreglo de leds
 CRGB leds[NUM_LEDS];
 
+//Socket
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
 
   if(type == WS_EVT_CONNECT){
@@ -134,11 +130,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
     Serial.println(nodoRecibido);
     Serial.println(actuador);
-    
-    /* for(int i=0; i < len; i++) {
-          actuador = (char) data[i];
-          Serial.print((char) data[i]);
-    } */
+
   }
 }
 
@@ -244,9 +236,9 @@ void Post(String fechaPost, float promedioVolts_dbPost, float humedad, float tem
   
   serializeJson(doc, postMessage);
   Serial.println(postMessage);
-  /* if(WiFi.status()== WL_CONNECTED){
+  if(WiFi.status()== WL_CONNECTED){
     HTTPClient http;
-    http.begin("http://192.168.1.5:3000/registros/insert-register");
+    http.begin(URL);
     http.addHeader("Content-Type", "application/json");
 
     int httpCode = http.POST(postMessage);
@@ -266,7 +258,7 @@ void Post(String fechaPost, float promedioVolts_dbPost, float humedad, float tem
       delay(500);
       Serial.println("Connecting to WiFi..");
     }
-  } */
+  }
   delay(70);
   postMessage = "";
   doc.clear();
@@ -293,9 +285,10 @@ void Post(String fechaPost, float promedioVolts_dbPost, float humedad, float tem
 void setup() {
   LEDS.addLeds<P9813, DATA_PIN, CLOCK_PIN>(leds, NUM_LEDS);
   nodo = '1';
+  URL = "http://11.11.6.30:3000/registros/insert-register";
+
   actuador = '0';
 
-  //Wire.begin(SDA_PIN2,SCL_PIN2);
   // Establece la velocidad de la transmisiÃ³n mediante puerto serial
   Serial.begin(9600);
   // Establece la configuracion del WiFi
@@ -388,7 +381,7 @@ void loop() {
     int picoPico = 0; // nivel pico a pico
 
     int muestraMaxima = 0;
-    int muestraMinima = 4095;
+    int muestraMinima = 4094;
 
     while (millis() - tiempoInicioMuestreo < VENTANA_MUESTREO) {
       muestra = analogRead(MICROFONO);
@@ -401,10 +394,6 @@ void loop() {
       }
     }
 
-    //Serial.print("Volataje: " + String(voltaje));
-    //Serial.print("\t");
-    //Serial.println("dB: " + String(volts_db));
-    
     if(millis() <= VENTANA_POSTEO) {
       picoPico = muestraMaxima - muestraMinima; 
       double voltaje = (picoPico * VOLTAJE_MUESTRA) / RESOLUCION_MUESTRA; // convierte el valor a voltaje
@@ -415,25 +404,15 @@ void loop() {
       
       String fecha = String(year()) + "-" + print2digits(month()) + "-" + print2digits(day()) + " " + print2digits(hour()) + ":" + print2digits(minute()) + ":" + print2digits(second());
       
-      promedioVolts_db = sumaVolts_db/ctrRuido;
-      
-      //if(promedioVolts_db>55 && !sonido){
-      //Lee el valor del pin Busy del mp3
+      //Actuadores
       sonido = digitalRead(18);
-      //if(actuador == '1' && sonido == HIGH && nodo == nodoRecibido){
+
       if(actuador == '1' && sonido == HIGH  && nodo == nodoRecibido){
         timerParlante = millis();
-        myDFPlayer.volume(30);
+        myDFPlayer.volume(10);
         myDFPlayer.play(1);
         actuador = 0;
       }
-
-      
-
-      /* if(millis() - timerParlante < 20000 && sonido == LOW){
-        myDFPlayer.stop();
-      } */
-          
 
       if(actuador == '2' && nodo == nodoRecibido){
         timerLed = millis();
@@ -449,39 +428,46 @@ void loop() {
           actuador = 0;
       }
 
-
-      /*if(millis() - timer > 12000 && sonido)
-          sonido = false; */
-
+      //Lectura de sensores
+      //Sensor ruido
+      promedioVolts_db = sumaVolts_db/ctrRuido;
+      //Sensor humedad
       float humedad = dht.readHumidity();
+      //Sensor temperatura
       float temperatura = dht.readTemperature();
+      //Sensor llama
       int llama = digitalRead(SENSORLLAMA);
+      //Sensor aire
       int raw_adc = analogRead(SENSOR_CALIDAD_AIRE);
-      //float value_adc = raw_adc * (5.0 / 1023.0);
       float value_adc = raw_adc * (5.0 / 4092);
-      
+      //Sensor distancia por ultrasonido
       int ultrasonido = sonar.ping_cm();
+      //Sensor PIR
       int PIR = digitalRead(SENSOR_PIR);
+      //Sensor altitud
       int altitud = bmp.readAltitude(1018);
+      //Sensor iluminacion
       uint16_t r, g, b, c;
       if(apds.colorDataReady()){
         apds.getColorData(&r, &g, &b, &c);
       }
       uint16_t iluminacion = apds.calculateLux(r, g, b);
-
+      //Sensor acelerometro
       mpu.set_accel_range(RANGE_4G);
       mpu.get_accel();
       int16_t acelerometro []= {mpu.x, mpu.y, mpu.z};
+      //Sensor giroscopio
       mpu.set_gyro_range(RANGE_GYRO_250);
       mpu.get_gyro();
       int16_t giroscopio [] = {mpu.gx, mpu.gy, mpu.gz};
-     
+     //Sensor magnetometro
       mpu.set_mag_scale(SCALE_14_BITS);
       mpu.set_mag_speed(MAG_8_Hz);
       mpu.get_mag();
       int16_t magnetometro [] = {mpu.mx, mpu.my, mpu.mz};
 
       if(promedioVolts_db > 0){
+        //Envio de datos al web service
         Post(fecha, promedioVolts_db, humedad, temperatura, llama, value_adc, ultrasonido, PIR, iluminacion, acelerometro, giroscopio, magnetometro, altitud);
       }
 
